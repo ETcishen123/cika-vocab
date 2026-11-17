@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#f6f2ea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="词卡">
+<title>词卡 · 六级生词本</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --paper:#f6f2ea;
+    --card:#fffdf8;
+    --ink:#20201e;
+    --ink-2:#5c574e;
+    --ink-3:#9a9286;
+    --line:#e7e0d3;
+    --accent:#8a6a3f;
+    --good:#2f6b4f;
+    --fuzzy:#a8762a;
+    --again:#a0432f;
+    --shadow:0 2px 4px rgba(64,52,32,.05), 0 12px 28px rgba(64,52,32,.09);
+    --radius:22px;
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-t:env(safe-area-inset-top,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#171613;
+      --card:#211f1b;
+      --ink:#efe9de;
+      --ink-2:#b3aa9b;
+      --ink-3:#7c7468;
+      --line:#332f28;
+      --accent:#c2a071;
+      --good:#6fbf95;
+      --fuzzy:#dfae66;
+      --again:#e08472;
+      --shadow:0 2px 4px rgba(0,0,0,.3), 0 14px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    overscroll-behavior:none;
+    display:flex;flex-direction:column;
+    padding:calc(var(--safe-t) + 10px) 16px calc(var(--safe-b) + 12px);
+    max-width:560px;margin:0 auto;
+  }
+
+  /* 顶部 */
+  header{display:flex;align-items:center;gap:12px;padding:2px 2px 10px}
+  .brand{font-size:15px;letter-spacing:.14em;color:var(--ink-2);font-weight:600}
+  .brand b{color:var(--ink);letter-spacing:.02em}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .days{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .icon-btn{
+    width:34px;height:34px;border-radius:12px;border:1px solid var(--line);
+    background:transparent;color:var(--ink-2);display:grid;place-items:center;
+    font-size:15px;cursor:pointer
+  }
+  .icon-btn:active{transform:scale(.94)}
+
+  /* 进度条 */
+  .bar-wrap{padding:0 2px 12px}
+  .bar{height:4px;border-radius:99px;background:var(--line);overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;border-radius:99px;background:var(--accent);transition:width .35s ease}
+  .bar-meta{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+  /* 卡片舞台 */
+  .stage{flex:1;display:flex;align-items:stretch;min-height:0;position:relative;perspective:1200px}
+  .card{
+    position:relative;flex:1;border-radius:var(--radius);background:var(--card);
+    border:1px solid var(--line);box-shadow:var(--shadow);
+    display:flex;flex-direction:column;overflow:hidden;
+    transform-style:preserve-3d;will-change:transform;
+    touch-action:pan-y;
+  }
+  .card-art{position:relative;height:31%;min-height:118px;max-height:230px;background:
+    radial-gradient(120% 100% at 50% 0%, rgba(138,106,63,.16), rgba(138,106,63,.03) 60%, transparent 100%),
+    var(--card);
+    display:grid;place-items:center;overflow:hidden;border-bottom:1px solid var(--line);
+    transition:height .28s ease, opacity .2s ease, border-color .2s}
+  .card-art.fold{height:0;min-height:0;opacity:0;border-bottom-color:transparent;pointer-events:none}
+  .card-art img{width:100%;height:100%;object-fit:cover;display:block}
+  .art-fallback{position:absolute;inset:0;display:grid;place-items:center}
+  .art-letter{font-family:Georgia,"Times New Roman","Songti SC",serif;font-size:64px;color:var(--accent);opacity:.12;letter-spacing:.02em}
+  .art-hit{position:absolute;right:10px;bottom:8px;font-size:10px;color:var(--ink-3);letter-spacing:.08em}
+
+  .card-body{flex:1;overflow:auto;padding:18px 22px 8px;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .card-body::-webkit-scrollbar{width:0;height:0}
+  .front{align-items:center;justify-content:center;text-align:center;gap:12px}
+  .word{font-family:Georgia,"Times New Roman","Songti SC",serif;font-size:44px;line-height:1.12;letter-spacing:-.01em;word-break:break-word}
+  .phonetic{font-size:15px;color:var(--ink-3);font-family:Georgia,serif}
+  .speak-row{display:flex;gap:8px;justify-content:center;margin-top:2px}
+  .pill{
+    border:1px solid var(--line);background:transparent;color:var(--ink-2);
+    border-radius:99px;padding:6px 12px;font-size:12px;cursor:pointer
+  }
+  .pill:active{transform:scale(.96)}
+  .hint{margin-top:auto;padding:14px 0 4px;font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+  .starline{font-size:12px;letter-spacing:.24em;color:var(--accent);opacity:.75}
+
+  .back{gap:14px;align-items:stretch;text-align:left}
+  .sec{border-top:1px dashed var(--line);padding-top:12px}
+  .sec:first-child{border-top:0;padding-top:0}
+  .sec h4{margin:0 0 6px;font-size:11px;letter-spacing:.16em;color:var(--ink-3);font-weight:600}
+  .sec p{margin:0;font-size:15.5px;line-height:1.62;color:var(--ink)}
+  .meaning{font-size:19px;line-height:1.55;font-weight:500}
+  .ex{font-family:Georgia,serif;font-size:15px;line-height:1.65;color:var(--ink-2)}
+
+  /* 底部三档 */
+  .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding-top:14px}
+  .act{
+    border:1px solid var(--line);background:var(--card);border-radius:16px;
+    padding:15px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-size:14px;font-weight:600;color:var(--ink-2);cursor:pointer;
+    box-shadow:0 1px 2px rgba(64,52,32,.04)
+  }
+  .act span.k{font-size:10px;font-weight:500;letter-spacing:.06em;color:var(--ink-3)}
+  .act.again{color:var(--again)}
+  .act.fuzzy{color:var(--fuzzy)}
+  .act.good{color:var(--good)}
+  .act:active{transform:translateY(1px) scale(.985)}
+
+  /* 浮动反馈 */
+  .toast{
+    position:fixed;left:50%;top:calc(var(--safe-t) + 74px);transform:translate(-50%,-12px);
+    background:rgba(32,32,30,.9);color:#fff;font-size:13px;padding:8px 16px;border-radius:99px;
+    opacity:0;pointer-events:none;transition:all .22s ease;z-index:20
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  /* 结束页 */
+  .finish{
+    position:absolute;inset:0;border-radius:var(--radius);background:var(--card);
+    border:1px solid var(--line);box-shadow:var(--shadow);display:none;
+    flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;gap:6px;z-index:5
+  }
+  .finish.on{display:flex}
+  .finish .big{font-family:Georgia,serif;font-size:52px;color:var(--accent);line-height:1}
+  .finish .sub{font-size:14px;color:var(--ink-2)}
+  .finish .stats{display:flex;gap:22px;margin:16px 0 6px}
+  .finish .stat{display:flex;flex-direction:column;gap:2px}
+  .finish .stat b{font-size:22px;font-family:Georgia,serif;font-weight:600}
+  .finish .stat i{font-style:normal;font-size:11px;color:var(--ink-3);letter-spacing:.08em}
+  .finish .next{margin-top:14px;font-size:12.5px;color:var(--ink-3);line-height:1.6}
+  .finish .fin-actions{display:flex;gap:10px;margin-top:18px}
+  .finish .fin-actions button{
+    border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:12px;
+    padding:11px 16px;font-size:13.5px;cursor:pointer
+  }
+
+  /* 设置面板 */
+  .sheet-mask{position:fixed;inset:0;background:rgba(20,18,14,.38);opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+  .sheet-mask.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--card);
+    border-radius:24px 24px 0 0;padding:20px 20px calc(var(--safe-b) + 22px);
+    transform:translateY(102%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+    max-width:560px;margin:0 auto;max-height:86vh;overflow:auto
+  }
+  .sheet.on{transform:translateY(0)}
+  .sheet h3{margin:0 0 16px;font-size:16px}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-top:1px solid var(--line)}
+  .row .lbl{font-size:14px}
+  .row .lbl small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+  .stepper{display:flex;align-items:center;gap:12px}
+  .stepper button{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:16px}
+  .stepper b{min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
+  .switch{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .switch button{border:0;background:transparent;color:var(--ink-3);padding:8px 12px;font-size:12.5px}
+  .switch button.on{background:var(--ink);color:var(--paper)}
+  .sheet .danger{color:var(--again)}
+  .sheet .note{font-size:11.5px;color:var(--ink-3);line-height:1.6;margin-top:14px}
+
+  /* 首屏加载 */
+  .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>词卡</b>　CET·6</div>
+  <div class="top-right">
+    <div class="days" id="days">第 1 天</div>
+    <button class="icon-btn" id="btnSettings" aria-label="设置">⋯</button>
+  </div>
+</header>
+
+<div class="bar-wrap">
+  <div class="bar"><i id="barFill"></i></div>
+  <div class="bar-meta">
+    <span id="metaLeft">今日任务 —</span>
+    <span id="metaRight">— / —</span>
+  </div>
+</div>
+
+<main class="stage">
+  <div class="card" id="card">
+    <div class="card-art" id="art">
+      <div class="art-fallback" id="artFallback"><div class="art-letter" id="artLetter">A</div></div>
+      <div class="art-hit" id="artHit"></div>
+    </div>
+    <div class="card-body" id="cardBody"><div class="loading">正在载入词库…</div></div>
+  </div>
+  <div class="finish" id="finish"></div>
+</main>
+
+<div class="actions" id="actions">
+  <button class="act again" data-grade="again">不认识<span class="k">下次一定再见</span></button>
+  <button class="act fuzzy" data-grade="fuzzy">模糊<span class="k">明天再来</span></button>
+  <button class="act good" data-grade="good">认识<span class="k">拉长间隔</span></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="sheet-mask" id="mask"></div>
+<div class="sheet" id="sheet">
+  <h3>设置</h3>
+  <div class="row">
+    <div class="lbl">每日新词<small>从没学过的词里按星级优先挑</small></div>
+    <div class="stepper"><button data-step="-5">−</button><b id="vNew">20</b><button data-step="5">＋</button></div>
+  </div>
+  <div class="row">
+    <div class="lbl">复习范围<small>「全部生词」= 所有未掌握的词每天过一遍</small></div>
+    <div class="switch" id="swMode">
+      <button data-mode="all">全部生词</button>
+      <button data-mode="due">仅到期</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl">发音</div>
+    <div class="switch" id="swAccent">
+      <button data-accent="en-GB">英音</button>
+      <button data-accent="en-US">美音</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl">进度备份</div>
+    <div class="stepper">
+      <button id="btnExport" style="width:auto;padding:0 12px;font-size:12.5px">导出</button>
+      <button id="btnImport" style="width:auto;padding:0 12px;font-size:12.5px">导入</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="lbl danger">重置今日任务<small>不清除学习进度，只重排今天的队列</small></div>
+    <button class="pill danger" id="btnResetToday">重排</button>
+  </div>
+  <div class="note" id="note">数据来自飞书生词本，共 <b id="vTotal">—</b> 词。生词卡图取自 Word Atlas（CC BY 4.0）。</div>
+</div>
+
+<input type="file" id="fileInput" accept="application/json" style="display:none">
+
+<script>
+"use strict";
+
+const STAGES = [1,2,4,7,15,30];
+const DEFAULTS = { newPerDay:20, mode:"all", accent:"en-GB" };
+const KEY_CFG = "cika.config.v1";
+const KEY_PROG = "cika.progress.v1";
+const KEY_SESSION = "cika.session.v1";
+
+let WORDS = [];
+let byId = new Map();
+let cfg = Object.assign({}, DEFAULTS);
+let progress = {};      // id -> {box, streak, due, last, status, wrong}
+let session = null;     // {date, queue:[id], idx, done:{again,fuzzy,good}}
+
+const $ = s => document.querySelector(s);
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
+const addDays = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
+
+/* ---------- 存储 ---------- */
+function loadLocal(){
+  try{ const c = localStorage.getItem(KEY_CFG); if(c) cfg = Object.assign(cfg, JSON.parse(c)); }catch(e){}
+  try{ const p = localStorage.getItem(KEY_PROG); if(p) progress = JSON.parse(p); }catch(e){}
+  try{ const s = localStorage.getItem(KEY_SESSION); if(s) session = JSON.parse(s); }catch(e){}
+}
+function saveCfg(){ try{ localStorage.setItem(KEY_CFG, JSON.stringify(cfg)); }catch(e){} }
+function saveProg(){ try{ localStorage.setItem(KEY_PROG, JSON.stringify(progress)); }catch(e){} }
+function saveSession(){ try{ localStorage.setItem(KEY_SESSION, JSON.stringify(session)); }catch(e){} }
+
+/* ---------- 队列 ---------- */
+function buildQueue(){
+  const today = todayStr();
+  const learned = progress;
+  const reviewPool = WORDS.filter(w => {
+    const p = learned[w.id];
+    if(!p) return false;
+    if(p.status === "mastered") return false;
+    if(cfg.mode === "due" && p.due && p.due > today) return false;
+    return true;
+  }).sort((a,b) => {
+    const pa = learned[a.id], pb = learned[b.id];
+    const da = pa.due || "9999", db = pb.due || "9999";
+    if(da < db) return -1; if(da > db) return 1;
+    return b.star - a.star;
+  });
+
+  const freshPool = WORDS.filter(w => !learned[w.id])
+    .sort((a,b) => (b.star - a.star) || (a.word > b.word ? 1 : -1));
+
+  const queue = reviewPool.map(w => w.id)
+    .concat(freshPool.slice(0, cfg.newPerDay).map(w => w.id));
+
+  return { date: today, queue, idx: 0, done:{again:0,fuzzy:0,good:0}, newCount: Math.min(freshPool.length, cfg.newPerDay), reviewCount: reviewPool.length };
+}
+
+function ensureSession(force){
+  const today = todayStr();
+  if(force || !session || session.date !== today || !Array.isArray(session.queue)){
+    session = buildQueue();
+    saveSession();
+  }
+  return session;
+}
+
+/* ---------- 渲染 ---------- */
+function currentWord(){
+  const s = ensureSession();
+  const id = s.queue[s.idx];
+  return id ? byId.get(id) : null;
+}
+
+function renderProgress(){
+  const s = session || ensureSession();
+  const total = s.queue.length;
+  const done = s.idx;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  $("#barFill").style.width = pct + "%";
+  $("#metaRight").textContent = `${done} / ${total}`;
+  const answered = s.done.again + s.done.fuzzy + s.done.good;
+  $("#metaLeft").textContent = total
+    ? `新词 ${s.newCount}　复习 ${s.reviewCount}　已作答 ${answered}`
+    : "今天没有任务";
+  $("#days").textContent = "第 " + (daysSinceStart() + 1) + " 天";
+}
+function daysSinceStart(){
+  const groups = new Set(WORDS.map(w => w.date).filter(Boolean));
+  return Math.max(0, groups.size - 1);
+}
+
+function starText(n){ return "★".repeat(n) + "☆".repeat(Math.max(0,3-n)); }
+
+function speak(text, accent){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = accent || cfg.accent;
+    u.rate = .9;
+    const voices = speechSynthesis.getVoices();
+    const hit = voices.find(v => v.lang === u.lang) || voices.find(v => (v.lang||"").startsWith(u.lang.slice(0,2)));
+    if(hit) u.voice = hit;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function renderCard(){
+  const w = currentWord();
+  if(!w){ renderFinish(); return; }
+  $("#finish").classList.remove("on");
+
+  // 图
+  const art = $("#art"), fb = $("#artFallback"), letter = $("#artLetter");
+  art.classList.remove("fold");
+  letter.textContent = w.word.slice(0,1).toUpperCase();
+  art.querySelectorAll("img").forEach(n => n.remove());
+  $("#artHit").textContent = "";
+  const img = new Image();
+  img.alt = "";
+  img.onload = () => { fb.style.opacity = 0; art.querySelectorAll("img").forEach(n => n.remove()); art.prepend(img); };
+  img.onerror = () => { fb.style.opacity = 1; };
+  img.src = `assets/img/${w.id}.webp`;
+  $("#artHit").textContent = "";
+
+  const body = $("#cardBody");
+  body.scrollTop = 0;
+  body.className = "card-body front";
+  body.innerHTML = `
+    <div class="starline">${starText(w.star)}</div>
+    <div class="word">${esc(w.word)}</div>
+    <div class="phonetic">${esc(w.phonetic || "")}</div>
+    <div class="speak-row">
+      <button class="pill" data-speak="uk">英音</button>
+      <button class="pill" data-speak="us">美音</button>
+    </div>
+    <div class="hint">轻点卡片　查看释义</div>
+  `;
+  cardFlipped = false;
+  renderProgress();
+}
+
+let cardFlipped = false;
+function flopCard(){
+  const w = currentWord();
+  if(!w) return;
+  const body = $("#cardBody");
+  body.scrollTop = 0;
+  if(!cardFlipped){
+    $("#art").classList.add("fold");
+    body.className = "card-body back";
+    body.innerHTML = `
+      <div class="sec"><h4>释义</h4><p class="meaning">${esc(w.meaning)}</p></div>
+      ${w.roots ? `<div class="sec"><h4>词根词缀</h4><p>${esc(w.roots)}</p></div>` : ""}
+      ${w.mnemonic ? `<div class="sec"><h4>助记</h4><p>${esc(w.mnemonic)}</p></div>` : ""}
+      ${w.example ? `<div class="sec"><h4>例句</h4><p class="ex">${esc(w.example)}</p></div>` : ""}
+      <div class="hint" style="text-align:center">左滑＝不认识　右滑＝认识</div>
+    `;
+    cardFlipped = true;
+  }else{
+    renderCard();
+  }
+}
+
+function esc(s){ return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+/* ---------- 作答 ---------- */
+function grade(kind){
+  const w = currentWord();
+  if(!w) return;
+  const today = todayStr();
+  const p = progress[w.id] || {box:0, streak:0, due:today, last:"", status:"learning", wrong:0};
+
+  if(kind === "again"){
+    p.box = 0; p.streak = 0; p.wrong = (p.wrong||0) + 1;
+    p.due = addDays(1); p.status = "learning";
+    toast("明天再见");
+  }else if(kind === "fuzzy"){
+    p.box = Math.max(0, (p.box||0) - 1); p.streak = 0;
+    p.due = addDays(1); p.status = "learning";
+    toast("明天再复习");
+  }else{
+    p.streak = (p.streak||0) + 1;
+    p.box = Math.min(STAGES.length - 1, (p.box||0) + 1);
+    if(p.streak >= 2){ p.status = "mastered"; p.due = addDays(STAGES[p.box]); toast("已标记掌握"); }
+    else { p.status = "learning"; p.due = addDays(STAGES[p.box]); toast(`${STAGES[p.box]} 天后再见`); }
+  }
+  p.last = today;
+  progress[w.id] = p;
+  saveProg();
+
+  const s = ensureSession();
+  s.done[kind] = (s.done[kind]||0) + 1;
+  s.idx += 1;
+  saveSession();
+
+  if(s.idx >= s.queue.length){ renderFinish(); renderProgress(); return; }
+  renderCard();
+}
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 1100);
+}
+
+function renderFinish(){
+  const s = session || ensureSession();
+  const total = s.queue.length;
+  const answered = s.done.again + s.done.fuzzy + s.done.good;
+  const correct = total ? Math.round(s.done.good / Math.max(1, answered) * 100) : 0;
+
+  const tomorrow = WORDS.filter(w => {
+    const p = progress[w.id];
+    return p && p.status !== "mastered" && p.due === addDays(1);
+  }).length;
+  const mastered = WORDS.filter(w => progress[w.id] && progress[w.id].status === "mastered").length;
+
+  const f = $("#finish");
+  f.classList.add("on");
+  f.innerHTML = total === 0 ? `
+    <div class="big">✓</div>
+    <div class="sub">今天的词已经背完了</div>
+    <div class="next">全部 ${WORDS.length} 个生词都已安排复习，明天再来。</div>
+    <div class="fin-actions"><button id="btnAgain">重排今日</button><button id="btnMore">再学 10 个新词</button></div>
+  ` : `
+    <div class="big">${correct >= 80 ? "很稳" : correct >= 50 ? "还行" : "再滚一遍"}</div>
+    <div class="sub">今日任务完成 · 正确率 ${correct}%</div>
+    <div class="stats">
+      <div class="stat"><b>${s.done.good}</b><i>认识</i></div>
+      <div class="stat"><b>${s.done.fuzzy}</b><i>模糊</i></div>
+      <div class="stat"><b>${s.done.again}</b><i>不认识</i></div>
+    </div>
+    <div class="next">明天待复习 ${tomorrow} 个　累计掌握 ${mastered} 个<br>共 ${WORDS.length} 个生词</div>
+    <div class="fin-actions"><button id="btnAgain">重排今日</button><button id="btnMore">再学 10 个新词</button></div>
+  `;
+  $("#barFill").style.width = "100%";
+  $("#metaLeft").textContent = "今日任务完成";
+  $("#metaRight").textContent = `${total} / ${total}`;
+
+  const again = $("#btnAgain"), more = $("#btnMore");
+  if(again) again.onclick = () => { ensureSession(true); renderCard(); };
+  if(more) more.onclick = () => {
+    const fresh = WORDS.filter(w => !progress[w.id]).slice(0, 10).map(w => w.id);
+    if(!fresh.length){ toast("没有更多新词了"); return; }
+    s.queue = fresh; s.idx = 0; s.done = {again:0,fuzzy:0,good:0}; s.newCount = fresh.length; s.reviewCount = 0;
+    saveSession(); renderCard();
+  };
+}
+
+/* ---------- 手势 ---------- */
+(function gestures(){
+  const card = $("#card");
+  let sx = 0, sy = 0, dx = 0, dy = 0, active = false, moved = false;
+
+  card.addEventListener("pointerdown", e => {
+    active = true; moved = false; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+    card.style.transition = "none";
+    card.setPointerCapture?.(e.pointerId);
+  });
+  card.addEventListener("pointermove", e => {
+    if(!active) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    if(Math.abs(dx) > 8 || Math.abs(dy) > 8) moved = true;
+    if(Math.abs(dx) > Math.abs(dy)){
+      card.style.transform = `translateX(${dx * .55}px) rotate(${dx * .012}deg)`;
+    }
+  });
+  card.addEventListener("pointerup", () => {
+    if(!active) return;
+    active = false;
+    card.style.transition = "transform .28s cubic-bezier(.2,.8,.2,1)";
+    card.style.transform = "";
+    if(Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy)){
+      const kind = dx < 0 ? "again" : "good";
+      const dir = dx < 0 ? -1 : 1;
+      card.style.transform = `translateX(${dir * 120}%) rotate(${dir * 6}deg)`;
+      setTimeout(() => { card.style.transition = "none"; card.style.transform = ""; grade(kind); }, 220);
+      return;
+    }
+    if(!moved) flopCard();
+  });
+  card.addEventListener("pointercancel", () => { active = false; card.style.transform = ""; });
+})();
+
+/* ---------- 事件 ---------- */
+document.addEventListener("click", e => {
+  const sp = e.target.closest("[data-speak]");
+  if(sp){
+    const w = currentWord(); if(!w) return;
+    speak(w.word, sp.dataset.speak === "uk" ? "en-GB" : "en-US");
+    return;
+  }
+  const act = e.target.closest("[data-grade]");
+  if(act){ grade(act.dataset.grade); }
+});
+
+document.addEventListener("keydown", e => {
+  if(e.target.tagName === "INPUT") return;
+  if(e.key === " "){ e.preventDefault(); flopCard(); }
+  else if(e.key === "ArrowLeft" || e.key === "1") grade("again");
+  else if(e.key === "ArrowRight" || e.key === "3") grade("good");
+  else if(e.key === "2") grade("fuzzy");
+});
+
+/* 设置面板 */
+function openSheet(){ $("#sheet").classList.add("on"); $("#mask").classList.add("on"); syncSheet(); }
+function closeSheet(){ $("#sheet").classList.remove("on"); $("#mask").classList.remove("on"); }
+$("#btnSettings").onclick = openSheet;
+$("#mask").onclick = closeSheet;
+
+function syncSheet(){
+  $("#vNew").textContent = cfg.newPerDay;
+  $("#vTotal").textContent = WORDS.length;
+  $("#swMode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === cfg.mode));
+  $("#swAccent").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.accent === cfg.accent));
+}
+$("#sheet").addEventListener("click", e => {
+  const step = e.target.closest("[data-step]");
+  if(step){
+    cfg.newPerDay = Math.max(0, Math.min(100, cfg.newPerDay + Number(step.dataset.step)));
+    saveCfg(); syncSheet(); ensureSession(true); renderCard(); return;
+  }
+  const mode = e.target.closest("[data-mode]");
+  if(mode){ cfg.mode = mode.dataset.mode; saveCfg(); syncSheet(); ensureSession(true); renderCard(); return; }
+  const acc = e.target.closest("[data-accent]");
+  if(acc){ cfg.accent = acc.dataset.accent; saveCfg(); syncSheet(); return; }
+});
+
+$("#btnResetToday").onclick = () => { ensureSession(true); renderCard(); closeSheet(); toast("已重排今日任务"); };
+
+$("#btnExport").onclick = () => {
+  const data = { version:1, exportedAt:new Date().toISOString(), config:cfg, progress, session };
+  const blob = new Blob([JSON.stringify(data, null, 1)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `词卡备份-${todayStr()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("已导出备份");
+};
+$("#btnImport").onclick = () => $("#fileInput").click();
+$("#fileInput").onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const txt = await f.text();
+    const obj = JSON.parse(txt);
+    if(obj.progress) progress = obj.progress;
+    if(obj.config) cfg = Object.assign(cfg, obj.config);
+    if(obj.session) session = obj.session;
+    saveProg(); saveCfg(); saveSession();
+    renderCard(); syncSheet(); toast("已恢复进度");
+  }catch(err){ toast("文件格式不对"); }
+  e.target.value = "";
+};
+
+/* ---------- 启动 ---------- */
+async function boot(){
+  loadLocal();
+  try{
+    const res = await fetch("data/words.json", {cache:"no-store"});
+    WORDS = await res.json();
+  }catch(e){
+    $("#cardBody").innerHTML = '<div class="loading">词库载入失败，检查 data/words.json 是否在同一目录</div>';
+    return;
+  }
+  WORDS.sort((a,b) => (a.date > b.date ? 1 : -1));
+  byId = new Map(WORDS.map(w => [w.id, w]));
+  ensureSession(false);
+  renderCard();
+  syncSheet();
+  if("serviceWorker" in navigator && location.protocol !== "file:"){
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+  speechSynthesis?.getVoices?.();
+}
+boot();
+</script>
+</body>
+</html>
